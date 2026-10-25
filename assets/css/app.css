@@ -1,0 +1,449 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+
+:root {
+    --primary-color: #0f2b48;
+    --primary-dark: #0a1c30;
+    --primary-light: #1b4975;
+    --secondary-color: #0284c7;
+    --accent-color: #f59e0b;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --sidebar-width: 260px;
+    --topbar-height: 64px;
+    --bg-light: #f8fafc;
+    --border-color: #e2e8f0;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-light);
+    color: #1e293b;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* RTL Specific typography & layout */
+[dir="rtl"] body {
+    font-family: 'Noto Nastaliq Urdu', 'Plus Jakarta Sans', system-ui, sans-serif;
+    letter-spacing: 0;
+}
+
+/* Top Navigation Bar */
+.topbar {
+    height: var(--topbar-height);
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+}
+
+/* Independent Scrolling Layout */
+body.app-layout {
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* App Wrapper Container */
+.app-wrapper {
+    display: flex;
+    height: calc(100vh - var(--topbar-height));
+    max-height: calc(100vh - var(--topbar-height));
+    overflow: hidden;
+}
+
+/* Sidebar with Independent Scroll */
+.sidebar {
+    width: var(--sidebar-width);
+    background: #0f172a;
+    color: #cbd5e1;
+    flex-shrink: 0;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    transition: all 0.25s ease;
+}
+
+/* Custom Sleek Scrollbar for Sidebar */
+.sidebar::-webkit-scrollbar {
+    width: 5px;
+}
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 1rem 0;
+    margin: 0;
+}
+
+.sidebar-menu li a {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.925rem;
+    font-weight: 500;
+    border-left: 4px solid transparent;
+    transition: all 0.2s ease;
+}
+
+[dir="rtl"] .sidebar-menu li a {
+    border-left: none;
+    border-right: 4px solid transparent;
+}
+
+.sidebar-menu li a:hover,
+.sidebar-menu li.active a {
+    color: #ffffff;
+    background: #1e293b;
+    border-left-color: var(--secondary-color);
+}
+
+[dir="rtl"] .sidebar-menu li a:hover,
+[dir="rtl"] .sidebar-menu li.active a {
+    border-right-color: var(--secondary-color);
+}
+
+.sidebar-menu li a i {
+    font-size: 1.15rem;
+    margin-inline-end: 0.75rem;
+    width: 20px;
+    text-align: center;
+}
+
+/* Main Content Area with Independent Scroll */
+.main-content {
+    flex-grow: 1;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 1.5rem;
+}
+
+/* Custom Sleek Scrollbar for Main Content */
+.main-content::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.main-content::-webkit-scrollbar-track {
+    background: #f8fafc;
+}
+.main-content::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.main-content::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* KPI Card Styling */
+.stat-card {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin-inline-end: 1rem;
+    flex-shrink: 0;
+}
+
+.stat-title {
+    font-size: 0.825rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+/* Common UI cards */
+.card-custom {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    margin-bottom: 1.5rem;
+}
+
+.card-custom .card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.table-custom th {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-top: none;
+}
+
+/* POS Screen */
+.pos-container {
+    height: calc(100vh - var(--topbar-height) - 1rem);
+    display: flex;
+    flex-direction: column;
+}
+
+.pos-cart-table-wrapper {
+    min-height: 250px;
+    max-height: calc(100vh - 360px);
+    overflow-y: auto;
+}
+
+.search-results-floating {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1050;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.search-result-item {
+    padding: 0.6rem 0.85rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.search-result-item:hover {
+    background-color: #f8fafc;
+}
+
+/* Print stylesheet rules */
+@media print {
+    body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .topbar, 
+    .sidebar, 
+    .d-print-none,
+    #sidebarToggle,
+    .alert {
+        display: none !important;
+    }
+
+    body {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    .app-wrapper {
+        display: block !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .main-content {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .card, 
+    .card-custom {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .printable-invoice {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        padding: 10px !important;
+        border: none !important;
+    }
+
+    /* Keep table crisp and borders visible */
+    table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #000000 !important;
+        color: #000000 !important;
+    }
+
+    .bg-light {
+        background-color: #f8fafc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .badge {
+        border: 1px solid #000000 !important;
+        color: #000000 !important;
+        background: transparent !important;
+    }
+}
+
+/* Mobile responsive */
+.sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    z-index: 1035;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+    backdrop-filter: blur(2px);
+}
+
+.sidebar-backdrop.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (max-width: 991.98px) {
+    .sidebar {
+        position: fixed;
+        left: -260px;
+        top: var(--topbar-height);
+        bottom: 0;
+        z-index: 1040;
+        height: calc(100vh - var(--topbar-height));
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.25);
+    }
+    [dir="rtl"] .sidebar {
+        left: auto;
+        right: -260px;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.25);
+    }
+    .sidebar.show {
+        left: 0;
+    }
+    [dir="rtl"] .sidebar.show {
+        right: 0;
+        left: auto;
+    }
+    .main-content {
+        padding: 1rem 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .topbar {
+        padding: 0 0.75rem;
+    }
+    .topbar .navbar-brand span:last-child {
+        font-size: 1rem;
+        max-width: 170px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .main-content {
+        padding: 0.75rem 0.5rem;
+    }
+    .stat-card {
+        padding: 0.875rem;
+    }
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+        margin-inline-end: 0.75rem;
+    }
+    .stat-title {
+        font-size: 0.75rem;
+    }
+    .stat-value {
+        font-size: 1.15rem;
+    }
+    .card-custom {
+        margin-bottom: 1rem;
+        border-radius: 8px;
+    }
+    .card-custom .card-header {
+        padding: 0.75rem 1rem;
+    }
+    .search-results-floating {
+        max-height: 220px;
+    }
+    #cartTable {
+        min-width: 520px;
+    }
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+    .modal-dialog {
+        margin: 0.5rem auto;
+        max-width: calc(100% - 1rem);
+    }
+    .modal-dialog-centered {
+        min-height: calc(100% - 1rem);
+    }
+}
