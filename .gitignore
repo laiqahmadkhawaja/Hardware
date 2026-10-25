@@ -1,0 +1,15 @@
+# Environment & IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary uploads or backups
+*.tmp
+*.bak
+*.log

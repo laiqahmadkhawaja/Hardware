@@ -147,8 +147,17 @@ include __DIR__ . '/includes/header.php';
                     <span>Change: <strong id="lblChangeAmount" class="text-success">PKR 0.00</strong></span>
                 </div>
 
-                <!-- Checkout Button -->
+                <!-- Print Format & Checkout Button -->
                 <div class="mt-auto">
+                    <div class="mb-2">
+                        <div class="btn-group w-100 btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="printFormat" id="fmtThermal" value="thermal" checked>
+                            <label class="btn btn-outline-primary" for="fmtThermal"><i class="bi bi-receipt-cutoff me-1"></i> Thermal (80mm)</label>
+
+                            <input type="radio" class="btn-check" name="printFormat" id="fmtA4" value="a4">
+                            <label class="btn btn-outline-primary" for="fmtA4"><i class="bi bi-file-earmark-text me-1"></i> A4 Invoice</label>
+                        </div>
+                    </div>
                     <button class="btn btn-primary w-100 py-3 fw-bold fs-5 shadow" id="btnCheckout">
                         <i class="bi bi-printer-fill me-1"></i> Complete & Print
                     </button>
@@ -400,7 +409,12 @@ $('#btnCheckout').click(function() {
         data: JSON.stringify(payload),
         success: function(res) {
             if (res.success) {
-                window.location.href = '<?= BASE_URL ?>/modules/sales/view.php?id=' + res.data.invoice_id + '&print=true';
+                const fmt = $('input[name="printFormat"]:checked').val() || 'thermal';
+                if (fmt === 'thermal') {
+                    window.location.href = '<?= BASE_URL ?>/modules/sales/thermal.php?id=' + res.data.invoice_id + '&print=true';
+                } else {
+                    window.location.href = '<?= BASE_URL ?>/modules/sales/view.php?id=' + res.data.invoice_id + '&print=true';
+                }
             } else {
                 alert('Sale Error: ' + res.message);
                 $('#btnCheckout').prop('disabled', false).html('<i class="bi bi-printer-fill me-1"></i> Complete & Print');
@@ -414,22 +428,48 @@ $('#btnCheckout').click(function() {
 });
 </script>
 
-<!-- Camera Barcode Scanner Modal -->
+<!-- Camera Barcode Scanner Modal with Auto-Align & Zoom -->
 <div class="modal fade" id="modalBarcodeScanner" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fs-6 fw-bold"><i class="bi bi-camera-fill me-1 text-primary"></i> Scan Barcode with Camera</h5>
-                <button type="button" class="btn-close" id="btnCloseScanner"></button>
-            </div>
-            <div class="modal-body text-center p-3">
-                <div id="barcodeReader" style="width: 100%; min-height: 280px; background: #000; border-radius: 8px; overflow: hidden;"></div>
-                <div class="small text-muted mt-2">
-                    <i class="bi bi-info-circle me-1"></i> Point your phone or laptop camera at the product barcode
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white py-2 px-3 align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-camera-fill text-warning fs-5"></i>
+                    <h6 class="modal-title fw-bold mb-0">Barcode Scanner</h6>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Zoom Controller -->
+                    <div class="btn-group btn-group-sm" id="scannerZoomGroup">
+                        <button type="button" class="btn btn-outline-light btn-sm py-0 px-2" onclick="setScannerZoom(1.0)" id="zoomBtn1">1x</button>
+                        <button type="button" class="btn btn-primary btn-sm py-0 px-2 active fw-bold" onclick="setScannerZoom(1.6)" id="zoomBtn16">1.6x Auto</button>
+                        <button type="button" class="btn btn-outline-light btn-sm py-0 px-2" onclick="setScannerZoom(2.2)" id="zoomBtn22">2.2x</button>
+                        <button type="button" class="btn btn-outline-light btn-sm py-0 px-2" onclick="setScannerZoom(3.0)" id="zoomBtn30">3x</button>
+                    </div>
+                    <!-- Flashlight Toggle -->
+                    <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2 d-none" id="btnToggleTorch" onclick="toggleScannerTorch()" title="Toggle Flashlight">
+                        <i class="bi bi-lightning-fill"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white ms-1" id="btnCloseScanner"></button>
                 </div>
             </div>
-            <div class="modal-footer justify-content-between">
-                <span id="scanStatus" class="small text-muted">Ready to scan...</span>
+            <div class="modal-body p-2 bg-dark">
+                <div class="scanner-viewport-wrapper" id="scannerViewport">
+                    <div id="barcodeReader"></div>
+                    <div class="scanner-laser-beam" id="scannerLaser"></div>
+                    <div class="scanner-guide-box" id="scannerGuideBox">
+                        <div class="scanner-corner scanner-corner-tl"></div>
+                        <div class="scanner-corner scanner-corner-tr"></div>
+                        <div class="scanner-corner scanner-corner-bl"></div>
+                        <div class="scanner-corner scanner-corner-br"></div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2 px-1 text-light small">
+                    <span id="scanStatus" class="font-monospace text-warning"><i class="bi bi-broadcast me-1"></i>Align barcode within green box...</span>
+                    <span class="text-secondary" style="font-size: 0.75rem;" id="zoomStatus">Auto-Zoom: 1.6x</span>
+                </div>
+            </div>
+            <div class="modal-footer bg-dark border-top border-secondary py-1 px-3 justify-content-between">
+                <small class="text-secondary" style="font-size: 0.75rem;">Supports EAN-13, Code 128, Code 39 & QR</small>
                 <button type="button" class="btn btn-secondary btn-sm" id="btnStopScanner">Cancel & Close</button>
             </div>
         </div>
@@ -439,6 +479,9 @@ $('#btnCheckout').click(function() {
 <script src="<?= BASE_URL ?>/assets/js/html5-qrcode.min.js"></script>
 <script>
 let html5QrCode = null;
+let currentScannerZoom = 1.6;
+let scannerTrack = null;
+let torchActive = false;
 
 // Open Camera Scanner Modal
 $('#btnOpenScanner').click(function() {
@@ -446,15 +489,27 @@ $('#btnOpenScanner').click(function() {
     const modalInstance = new bootstrap.Modal(modalEl);
     modalInstance.show();
 
-    $('#scanStatus').text('Starting camera...').removeClass('text-danger text-success').addClass('text-muted');
+    $('#scanStatus').html('<span class="spinner-border spinner-border-sm me-1"></span> Initializing optical sensor...').removeClass('text-danger text-success').addClass('text-warning');
 
     if (!html5QrCode) {
-        html5QrCode = new Html5Qrcode("barcodeReader");
+        html5QrCode = new Html5Qrcode("barcodeReader", {
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            }
+        });
     }
 
+    // Dynamic wide rectangular alignment box optimized for 1D hardware barcodes
     const config = { 
-        fps: 15, 
-        qrbox: { width: 280, height: 180 },
+        fps: 25,
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+            const w = Math.floor(viewfinderWidth * 0.88);
+            const h = Math.floor(Math.min(viewfinderHeight * 0.52, w * 0.44));
+            return {
+                width: Math.max(220, w),
+                height: Math.max(100, h)
+            };
+        },
         aspectRatio: 1.333
     };
 
@@ -463,41 +518,130 @@ $('#btnOpenScanner').click(function() {
         config, 
         onBarcodeSuccess, 
         onBarcodeFailure
-    ).catch(err => {
+    ).then(() => {
+        $('#scanStatus').html('<i class="bi bi-check-circle-fill text-success me-1"></i> Sensor active. Center barcode.').removeClass('text-warning').addClass('text-light');
+        
+        // Access underlying camera video track for native zoom and flashlight
+        setTimeout(() => {
+            detectAndApplyCapabilities();
+        }, 300);
+    }).catch(err => {
         console.error("Camera access error:", err);
-        $('#scanStatus').text('Camera permission denied or camera not found.').addClass('text-danger');
+        $('#scanStatus').html('<i class="bi bi-exclamation-triangle-fill me-1"></i> Camera permission denied or not available.').removeClass('text-warning').addClass('text-danger');
     });
 });
 
+function detectAndApplyCapabilities() {
+    try {
+        const videoEl = document.querySelector('#barcodeReader video');
+        if (videoEl && videoEl.srcObject) {
+            const tracks = videoEl.srcObject.getVideoTracks();
+            if (tracks.length > 0) {
+                scannerTrack = tracks[0];
+                const caps = scannerTrack.getCapabilities ? scannerTrack.getCapabilities() : {};
+
+                // Torch detection
+                if (caps.torch) {
+                    $('#btnToggleTorch').removeClass('d-none');
+                } else {
+                    $('#btnToggleTorch').addClass('d-none');
+                }
+
+                // Apply initial Auto-Zoom (1.6x)
+                setScannerZoom(1.6);
+            }
+        }
+    } catch (e) {
+        console.warn("Camera capabilities detection:", e);
+    }
+}
+
+function setScannerZoom(zoomVal) {
+    currentScannerZoom = zoomVal;
+    
+    // Update zoom buttons visual state
+    $('#scannerZoomGroup button').removeClass('btn-primary active fw-bold').addClass('btn-outline-light');
+    if (zoomVal === 1.0) $('#zoomBtn1').addClass('btn-primary active fw-bold').removeClass('btn-outline-light');
+    else if (zoomVal === 1.6) $('#zoomBtn16').addClass('btn-primary active fw-bold').removeClass('btn-outline-light');
+    else if (zoomVal === 2.2) $('#zoomBtn22').addClass('btn-primary active fw-bold').removeClass('btn-outline-light');
+    else if (zoomVal === 3.0) $('#zoomBtn30').addClass('btn-primary active fw-bold').removeClass('btn-outline-light');
+    
+    $('#zoomStatus').text('Zoom: ' + zoomVal + 'x' + (zoomVal === 1.6 ? ' (Auto)' : ''));
+
+    // 1. Try Hardware Optical/Digital Camera Zoom if supported
+    if (scannerTrack && typeof scannerTrack.getCapabilities === 'function') {
+        const caps = scannerTrack.getCapabilities();
+        if (caps.zoom) {
+            const targetZoom = Math.min(Math.max(zoomVal, caps.zoom.min || 1), caps.zoom.max || 3);
+            scannerTrack.applyConstraints({
+                advanced: [{ zoom: targetZoom }]
+            }).catch(e => {
+                console.log("Hardware zoom not accepted, falling back to CSS transform");
+            });
+        }
+    }
+
+    // 2. Universal Digital Zoom via CSS Transform (smooth universal fallback for all webcams)
+    const videoEl = document.querySelector('#barcodeReader video');
+    if (videoEl) {
+        videoEl.style.transform = `scale(${zoomVal})`;
+        videoEl.style.transformOrigin = 'center center';
+    }
+}
+
+function toggleScannerTorch() {
+    if (!scannerTrack) return;
+    try {
+        const caps = scannerTrack.getCapabilities ? scannerTrack.getCapabilities() : {};
+        if (caps.torch) {
+            torchActive = !torchActive;
+            scannerTrack.applyConstraints({
+                advanced: [{ torch: torchActive }]
+            }).then(() => {
+                if (torchActive) {
+                    $('#btnToggleTorch').addClass('btn-warning text-dark').removeClass('btn-outline-warning');
+                } else {
+                    $('#btnToggleTorch').removeClass('btn-warning text-dark').addClass('btn-outline-warning');
+                }
+            });
+        }
+    } catch (e) {
+        console.warn("Torch toggle error:", e);
+    }
+}
+
 function stopScanner() {
+    torchActive = false;
+    scannerTrack = null;
     if (html5QrCode && html5QrCode.isScanning) {
         html5QrCode.stop().then(() => {
-            bootstrap.Modal.getInstance(document.getElementById('modalBarcodeScanner')).hide();
+            bootstrap.Modal.getInstance(document.getElementById('modalBarcodeScanner'))?.hide();
         }).catch(err => {
-            console.error("Stop error:", err);
-            bootstrap.Modal.getInstance(document.getElementById('modalBarcodeScanner')).hide();
+            bootstrap.Modal.getInstance(document.getElementById('modalBarcodeScanner'))?.hide();
         });
     } else {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('modalBarcodeScanner'));
-        if (modal) modal.hide();
+        bootstrap.Modal.getInstance(document.getElementById('modalBarcodeScanner'))?.hide();
     }
 }
 
 $('#btnCloseScanner, #btnStopScanner').click(stopScanner);
 
 function onBarcodeSuccess(decodedText, decodedResult) {
-    $('#scanStatus').text('Scanned: ' + decodedText).addClass('text-success');
+    $('#scanStatus').html('<i class="bi bi-check-all text-success me-1"></i> Barcode: <strong>' + decodedText + '</strong>').addClass('text-success');
     
-    // Beep sound feedback
+    // Play short positive chirp sound feedback
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.frequency.value = 850;
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+        osc.frequency.setValueAtTime(1174, audioCtx.currentTime + 0.06); // D6 note
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.16);
         osc.start();
-        setTimeout(() => { osc.stop(); }, 120);
+        osc.stop(audioCtx.currentTime + 0.16);
     } catch(e) {}
 
     // Lookup barcode and add directly to cart
@@ -506,7 +650,7 @@ function onBarcodeSuccess(decodedText, decodedResult) {
             addToCart(res.data[0]);
             stopScanner();
         } else {
-            $('#scanStatus').text('Barcode ' + decodedText + ' not found in products.').addClass('text-danger');
+            $('#scanStatus').html('<i class="bi bi-x-circle text-danger me-1"></i> Item not found for barcode: ' + decodedText).addClass('text-danger');
         }
     }, 'json');
 }
