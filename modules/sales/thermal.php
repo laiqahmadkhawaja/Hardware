@@ -9,6 +9,7 @@ check_auth();
 $id = (int)($_GET['id'] ?? 0);
 $auto_print = isset($_GET['print']);
 $paper_size = (isset($_GET['size']) && $_GET['size'] === '58') ? 58 : 80;
+$printable_width = ($paper_size === 58) ? '48mm' : '72mm';
 
 // Fetch sale details
 $stmt = $conn->prepare("SELECT s.*, c.name as customer_name, c.name_ur as customer_name_ur, c.phone as customer_phone, c.current_balance as customer_balance,
@@ -60,58 +61,70 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
         body {
             background-color: #e2e8f0;
             color: #000000;
-            font-family: 'Courier New', Courier, monospace, system-ui;
+            font-family: Arial, "Helvetica Neue", Helvetica, "Segoe UI", Tahoma, sans-serif;
             margin: 0;
             padding: 20px 10px;
         }
 
-        .receipt-container {
-            width: <?= $paper_size === 58 ? '58mm' : '80mm' ?>;
-            max-width: 100%;
-            margin: 0 auto;
-            background: #ffffff;
-            padding: <?= $paper_size === 58 ? '8px 5px' : '14px 10px' ?>;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-size: <?= $paper_size === 58 ? '11px' : '12px' ?>;
-            line-height: 1.35;
-            color: #000000;
+        /* 1 & 2 & 4 & 5: Monoline Sans-Serif, Uniform 700 Bold, Pure #000, Geometric Precision */
+        .receipt-container,
+        .receipt-container * {
+            font-family: Arial, "Helvetica Neue", Helvetica, "Segoe UI", Tahoma, sans-serif !important;
+            font-weight: 700 !important;
+            color: #000000 !important;
+            fill: #000000 !important;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: geometricPrecision;
         }
 
+        /* 6: Printable Widths - 48mm for 58mm roll, 72mm for 80mm roll */
+        .receipt-container {
+            width: <?= $printable_width ?>;
+            max-width: <?= $printable_width ?>;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: <?= $paper_size === 58 ? '4px 2px' : '8px 4px' ?>;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
+            line-height: 1.3;
+        }
+
+        /* 3: Hierarchy via Font Size Only */
         .receipt-header {
             text-align: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .store-title {
-            font-size: <?= $paper_size === 58 ? '15px' : '18px' ?>;
-            font-weight: 900;
+            font-size: <?= $paper_size === 58 ? '14px' : '18px' ?>;
             text-transform: uppercase;
             margin: 0 0 2px 0;
-            letter-spacing: -0.5px;
+            letter-spacing: -0.2px;
+            line-height: 1.2;
         }
         .store-title-ur {
-            font-size: 14px;
-            font-weight: bold;
-            margin: 0 0 4px 0;
-            font-family: system-ui, sans-serif;
+            font-size: <?= $paper_size === 58 ? '13px' : '15px' ?>;
+            margin: 0 0 3px 0;
+            line-height: 1.3;
         }
         .store-sub {
-            font-size: 10px;
+            font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>;
             margin: 0;
-            color: #222;
+            line-height: 1.25;
         }
 
         .divider {
             border-top: 1px dashed #000000;
-            margin: 6px 0;
+            margin: 5px 0;
         }
         .divider-double {
             border-top: 2px solid #000000;
-            margin: 6px 0;
+            margin: 5px 0;
         }
 
         .receipt-meta {
-            font-size: 11px;
-            margin-bottom: 6px;
+            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
+            margin-bottom: 5px;
         }
         .meta-row {
             display: flex;
@@ -123,59 +136,66 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 4px 0;
+            margin: 3px 0;
         }
         .items-table th {
-            border-bottom: 1px dashed #000;
-            border-top: 1px dashed #000;
-            padding: 4px 0;
-            font-size: 11px;
+            border-bottom: 1px dashed #000000;
+            border-top: 1px dashed #000000;
+            padding: 3px 0;
+            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
             text-align: left;
         }
         .items-table td {
-            padding: 3px 0;
+            padding: 2px 0;
             vertical-align: top;
         }
         .item-name {
-            font-weight: bold;
-            font-size: 11.5px;
+            font-size: <?= $paper_size === 58 ? '11px' : '13px' ?>;
             word-break: break-word;
         }
         .item-details {
-            font-size: 10.5px;
-            color: #111;
+            font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>;
+        }
+        .item-total {
+            font-size: <?= $paper_size === 58 ? '11px' : '13px' ?>;
+            text-align: right;
         }
 
         /* Totals */
         .total-row {
             display: flex;
             justify-content: space-between;
-            padding: 2px 0;
+            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
+            padding: 1.5px 0;
         }
         .grand-total {
-            font-size: <?= $paper_size === 58 ? '15px' : '17px' ?>;
-            font-weight: 900;
-            border-top: 1px solid #000;
-            border-bottom: 1px solid #000;
-            padding: 4px 0;
-            margin: 4px 0;
+            font-size: <?= $paper_size === 58 ? '14px' : '17px' ?>;
+            border-top: 1px solid #000000;
+            border-bottom: 1px solid #000000;
+            padding: 3px 0;
+            margin: 3px 0;
+        }
+
+        .bank-info {
+            font-size: <?= $paper_size === 58 ? '9px' : '10.5px' ?>;
+            margin-bottom: 2px;
         }
 
         .footer-note {
             text-align: center;
-            font-size: 10px;
-            margin-top: 8px;
-            line-height: 1.3;
+            font-size: <?= $paper_size === 58 ? '8.5px' : '10px' ?>;
+            margin-top: 6px;
+            line-height: 1.25;
         }
 
         .barcode-wrapper {
             text-align: center;
-            margin: 10px 0 4px 0;
+            margin: 8px 0 3px 0;
         }
         .barcode-text {
-            font-size: 11px;
-            font-weight: bold;
-            letter-spacing: 2px;
+            font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>;
+            letter-spacing: 1.5px;
+            margin-top: 2px;
         }
 
         /* Screen Toolbar */
@@ -195,8 +215,8 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
                 display: none !important;
             }
             .receipt-container {
-                width: 100% !important;
-                max-width: <?= $paper_size === 58 ? '58mm' : '80mm' ?> !important;
+                width: <?= $printable_width ?> !important;
+                max-width: <?= $printable_width ?> !important;
                 box-shadow: none !important;
                 padding: 0 !important;
                 margin: 0 auto !important;
@@ -290,16 +310,16 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
                     <td colspan="3" class="item-name">
                         <?= clean_input($row['product_name']) ?>
                         <?php if (!empty($row['product_name_ur'])): ?>
-                            <small style="font-family: system-ui;">(<?= clean_input($row['product_name_ur']) ?>)</small>
+                            <span>(<?= clean_input($row['product_name_ur']) ?>)</span>
                         <?php endif; ?>
                     </td>
                 </tr>
                 <tr>
-                    <td class="item-details" style="padding-left: 6px;">
+                    <td class="item-details" style="padding-left: 4px;">
                         <?= format_qty($row['quantity']) ?> <?= clean_input($row['unit_name']) ?> @ <?= number_format($row['unit_price'], 2) ?>
                     </td>
                     <td></td>
-                    <td style="text-align: right; font-weight: bold;"><?= number_format($row['total'], 2) ?></td>
+                    <td class="item-total"><?= number_format($row['total'], 2) ?></td>
                 </tr>
             <?php endwhile; ?>
         </tbody>
@@ -307,7 +327,7 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
 
     <div class="divider"></div>
 
-    <!-- Financial Totals -->
+    <!-- Financial Totals (Hierarchy via Font Size Only) -->
     <div class="total-row">
         <span>Total Items Qty:</span>
         <span><?= format_qty($item_count) ?></span>
@@ -318,7 +338,7 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
     </div>
 
     <?php if ($sale['discount_amount'] > 0): ?>
-        <div class="total-row" style="color: #000;">
+        <div class="total-row">
             <span>Discount:</span>
             <span>- PKR <?= number_format($sale['discount_amount'], 2) ?></span>
         </div>
@@ -331,15 +351,15 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
 
     <div class="total-row">
         <span>Paid (<?= strtoupper($sale['payment_method'] ?? 'CASH') ?>):</span>
-        <span style="font-weight: bold;">PKR <?= number_format($sale['paid_amount'], 2) ?></span>
+        <span>PKR <?= number_format($sale['paid_amount'], 2) ?></span>
     </div>
 
     <?php if ($sale['due_amount'] > 0): ?>
-        <div class="total-row" style="font-weight: bold;">
+        <div class="total-row">
             <span>Current Balance Due:</span>
             <span>PKR <?= number_format($sale['due_amount'], 2) ?></span>
         </div>
-        <div class="total-row" style="font-size: 10.5px;">
+        <div class="total-row" style="font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>;">
             <span>Total Khata Balance:</span>
             <span>PKR <?= number_format($sale['customer_balance'], 2) ?></span>
         </div>
@@ -356,12 +376,12 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
     <!-- Bank Accounts / Online Details if enabled -->
     <?php if ($banks && $banks->num_rows > 0): ?>
         <div class="divider"></div>
-        <div style="font-size: 10px; margin-bottom: 3px; font-weight: bold; text-align: center;">BANK / DIGITAL PAYMENT ACCOUNTS</div>
+        <div style="font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>; margin-bottom: 3px; text-align: center;">BANK / DIGITAL PAYMENT ACCOUNTS</div>
         <?php while ($b = $banks->fetch_assoc()): ?>
-            <div style="font-size: 9.5px; margin-bottom: 2px;">
-                <strong><?= clean_input($b['bank_name'] ?: $b['name']) ?>:</strong> <?= clean_input($b['account_number']) ?>
+            <div class="bank-info">
+                <span><?= clean_input($b['bank_name'] ?: $b['name']) ?>:</span> <?= clean_input($b['account_number']) ?>
                 <?php if (!empty($b['iban'])): ?>
-                    <div style="font-size: 8.5px;">IBAN: <?= clean_input($b['iban']) ?></div>
+                    <div>IBAN: <?= clean_input($b['iban']) ?></div>
                 <?php endif; ?>
             </div>
         <?php endwhile; ?>
@@ -371,7 +391,7 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
 
     <!-- Barcode -->
     <div class="barcode-wrapper">
-        <?= generate_barcode_svg($sale['invoice_no'], 32, 1.2) ?>
+        <?= generate_barcode_svg($sale['invoice_no'], $paper_size === 58 ? 28 : 34, $paper_size === 58 ? 0.95 : 1.25) ?>
         <div class="barcode-text"><?= clean_input($sale['invoice_no']) ?></div>
     </div>
 
@@ -382,9 +402,9 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
         <?php else: ?>
             <div>Thank you for your business!</div>
             <div>Goods once sold can be exchanged within 3 days with this receipt.</div>
-            <div style="font-family: system-ui; margin-top: 2px;">خریدا گیا مال بغیر رسید کے واپس نہیں ہوگا۔ شکریہ!</div>
+            <div style="margin-top: 2px;">خریدا گیا مال بغیر رسید کے واپس نہیں ہوگا۔ شکریہ!</div>
         <?php endif; ?>
-        <div style="font-size: 8.5px; margin-top: 6px; color: #555;">Software: Pak Hardware ERP & POS</div>
+        <div style="font-size: <?= $paper_size === 58 ? '8px' : '9px' ?>; margin-top: 5px;">Software: Pak Hardware ERP & POS</div>
     </div>
 </div>
 
