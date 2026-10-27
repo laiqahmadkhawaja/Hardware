@@ -78,6 +78,24 @@ if ($action === 'create_sale') {
         $grand_total = max(0, $subtotal - $discount_amount);
         $due_amount = max(0, $grand_total - $paid_amount);
 
+        // Fetch & lock customer record
+        $cust_stmt = $conn->prepare("SELECT id, name, name_ur, current_balance, credit_limit FROM customers WHERE id = ? FOR UPDATE");
+        $cust_stmt->bind_param("i", $customer_id);
+        $cust_stmt->execute();
+        $cust = $cust_stmt->get_result()->fetch_assoc();
+
+        if (!$cust) {
+            throw new Exception("Customer not found.");
+        }
+
+        // Rule: Walk-in customers cannot make credit purchases (must pay full amount)
+        $cname = strtolower($cust['name']);
+        $is_walkin = ($cust['id'] == 1 || strpos($cname, 'walk-in') !== false || strpos($cname, 'walk in') !== false || strpos($cust['name_ur'] ?? '', 'واک ان') !== false);
+
+        if ($is_walkin && $due_amount > 0.001) {
+            throw new Exception("Walk-in customer sales cannot be on credit (ادھار). Full payment of PKR " . number_format($grand_total, 2) . " is required.");
+        }
+
         $payment_status = 'paid';
         if ($paid_amount <= 0 && $grand_total > 0) {
             $payment_status = 'due';
@@ -119,11 +137,6 @@ if ($action === 'create_sale') {
         }
 
         // Process Customer Khata & Balances
-        $cust_stmt = $conn->prepare("SELECT current_balance, credit_limit, name FROM customers WHERE id = ? FOR UPDATE");
-        $cust_stmt->bind_param("i", $customer_id);
-        $cust_stmt->execute();
-        $cust = $cust_stmt->get_result()->fetch_assoc();
-
         if ($cust) {
             $running = (float)$cust['current_balance'];
             

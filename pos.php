@@ -170,14 +170,16 @@ include __DIR__ . '/includes/header.php';
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Select Customer (کھاتہ دار)</label>
                     <select id="customerId" class="form-select">
-                        <?php while ($c = $customers->fetch_assoc()): ?>
-                            <option value="<?= $c['id'] ?>" data-balance="<?= $c['current_balance'] ?>" data-limit="<?= $c['credit_limit'] ?>">
+                        <?php while ($c = $customers->fetch_assoc()): 
+                            $is_walkin_val = ($c['id'] == 1 || stripos($c['name'], 'walk') !== false) ? 1 : 0;
+                        ?>
+                            <option value="<?= $c['id'] ?>" data-balance="<?= $c['current_balance'] ?>" data-limit="<?= $c['credit_limit'] ?>" data-is-walkin="<?= $is_walkin_val ?>">
                                 <?= clean_input($c['name']) ?> (<?= clean_input($c['phone']) ?>)
                             </option>
                         <?php endwhile; ?>
                     </select>
-                    <div class="small mt-1 text-muted d-flex justify-content-between">
-                        <span>Current Khata Due:</span>
+                    <div class="small mt-1 text-muted d-flex justify-content-between align-items-center">
+                        <span id="customerTypeBadge">Current Khata Due:</span>
                         <span id="customerBalanceBadge" class="fw-bold text-danger">PKR 0.00</span>
                     </div>
                 </div>
@@ -241,7 +243,7 @@ include __DIR__ . '/includes/header.php';
                 </div>
 
                 <div class="d-flex justify-content-between small text-muted mb-3 px-1">
-                    <span>Due on Khata: <strong id="lblDueAmount" class="text-danger">PKR 0.00</strong></span>
+                    <span id="khataDueRow">Due on Khata: <strong id="lblDueAmount" class="text-danger">PKR 0.00</strong></span>
                     <span>Change: <strong id="lblChangeAmount" class="text-success">PKR 0.00</strong></span>
                 </div>
 
@@ -312,11 +314,30 @@ function applyGridFilters() {
     $('#productCountBadge').text(visibleCount + ' Items');
 }
 
-// Customer Balance Update
+// Customer Balance & Walk-in validation Update
 function updateCustomerInfo() {
     const opt = $('#customerId option:selected');
+    const isWalkin = parseInt(opt.data('is-walkin') || 0) === 1;
     const bal = parseFloat(opt.data('balance') || 0);
-    $('#customerBalanceBadge').text('PKR ' + bal.toFixed(2));
+
+    if (isWalkin) {
+        $('#customerTypeBadge').html('<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-cash-stack me-1"></i> Cash Only / No Credit (نقد)</span>');
+        $('#customerBalanceBadge').text('No Khata');
+        $('#khataDueRow').addClass('d-none');
+        // Auto-fill full paid amount for walk-in
+        let subtotal = 0;
+        cart.forEach(i => subtotal += (i.qty * i.price));
+        const discount = parseFloat($('#txtDiscount').val()) || 0;
+        const grandTotal = Math.max(0, subtotal - discount);
+        if (grandTotal > 0) {
+            $('#txtPaidAmount').val(grandTotal.toFixed(2));
+        }
+    } else {
+        $('#customerTypeBadge').text('Current Khata Due:');
+        $('#customerBalanceBadge').text('PKR ' + bal.toFixed(2));
+        $('#khataDueRow').removeClass('d-none');
+    }
+    recalculateTotals();
 }
 $('#customerId').on('change', updateCustomerInfo);
 updateCustomerInfo();
@@ -530,11 +551,33 @@ function recalculateTotals() {
     $('#lblGrandTotal').text('PKR ' + grandTotal.toFixed(2));
     $('#mobileGrandTotal').text('PKR ' + grandTotal.toFixed(2));
 
+    const opt = $('#customerId option:selected');
+    const isWalkin = parseInt(opt.data('is-walkin') || 0) === 1;
+
+    // If walk-in and paid amount is blank, 0, or equals previous subtotal, sync to grandTotal
+    let paidVal = $('#txtPaidAmount').val();
+    if (isWalkin && (paidVal === '' || paidVal === '0' || parseFloat(paidVal) === 0)) {
+        if (grandTotal > 0) {
+            $('#txtPaidAmount').val(grandTotal.toFixed(2));
+        }
+    }
+
     const paid = parseFloat($('#txtPaidAmount').val()) || 0;
     const due = Math.max(0, grandTotal - paid);
     const change = Math.max(0, paid - grandTotal);
 
-    $('#lblDueAmount').text('PKR ' + due.toFixed(2));
+    if (isWalkin) {
+        if (due > 0.001) {
+            $('#lblDueAmount').html('<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i> Credit Not Allowed</span>');
+            $('#khataDueRow').removeClass('d-none');
+        } else {
+            $('#lblDueAmount').text('PKR 0.00');
+            $('#khataDueRow').addClass('d-none');
+        }
+    } else {
+        $('#lblDueAmount').text('PKR ' + due.toFixed(2));
+        $('#khataDueRow').removeClass('d-none');
+    }
     $('#lblChangeAmount').text('PKR ' + change.toFixed(2));
 }
 
@@ -553,6 +596,22 @@ $('#btnExactPaid').click(function() {
 $('#btnCheckout').click(function() {
     if (cart.length === 0) {
         alert('Please add items to cart first.');
+        return;
+    }
+
+    const opt = $('#customerId option:selected');
+    const isWalkin = parseInt(opt.data('is-walkin') || 0) === 1;
+    const paidAmount = parseFloat($('#txtPaidAmount').val()) || 0;
+
+    let subtotal = 0;
+    cart.forEach(i => subtotal += (i.qty * i.price));
+    const discount = parseFloat($('#txtDiscount').val()) || 0;
+    const grandTotal = Math.max(0, subtotal - discount);
+
+    if (isWalkin && paidAmount < (grandTotal - 0.001)) {
+        alert('Walk-in Customer / Cash Sale cannot be on credit (واک ان گاہک کے لیے ادھار ممکن نہیں ہے۔ براہِ کرم پورا کیش درج کریں).\n\nTotal Payable: PKR ' + grandTotal.toFixed(2) + '\nEntered Amount: PKR ' + paidAmount.toFixed(2));
+        $('#txtPaidAmount').val(grandTotal.toFixed(2)).focus();
+        recalculateTotals();
         return;
     }
 
