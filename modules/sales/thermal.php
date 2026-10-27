@@ -9,7 +9,11 @@ check_auth();
 $id = (int)($_GET['id'] ?? 0);
 $auto_print = isset($_GET['print']);
 $paper_size = (isset($_GET['size']) && $_GET['size'] === '58') ? 58 : 80;
-$printable_width = ($paper_size === 58) ? '48mm' : '72mm';
+// Safe printable content width factoring in thermal head printable width & driver hardware margins
+// 80mm roll: 72mm thermal head with 68mm safe printable content width
+// 58mm roll: 48mm thermal head with 45mm safe printable content width
+$printable_width = ($paper_size === 58) ? '45mm' : '68mm';
+$roll_size = ($paper_size === 58) ? '58mm' : '80mm';
 
 // Fetch sale details
 $stmt = $conn->prepare("SELECT s.*, c.name as customer_name, c.name_ur as customer_name_ur, c.phone as customer_phone, c.current_balance as customer_balance,
@@ -54,7 +58,7 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/bootstrap-icons.css">
     <style>
         * {
-            box-sizing: border-box;
+            box-sizing: border-box !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
@@ -76,17 +80,18 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             text-rendering: geometricPrecision;
+            box-sizing: border-box !important;
         }
 
-        /* 6: Printable Widths - 48mm for 58mm roll, 72mm for 80mm roll */
+        /* 6: Printable Widths - 45mm safe for 58mm roll, 68mm safe for 80mm roll */
         .receipt-container {
             width: <?= $printable_width ?>;
             max-width: <?= $printable_width ?>;
             margin: 0 auto;
             background: #ffffff;
-            padding: <?= $paper_size === 58 ? '4px 2px' : '8px 4px' ?>;
+            padding: <?= $paper_size === 58 ? '4px 3px' : '8px 5px' ?>;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
+            font-size: <?= $paper_size === 58 ? '10px' : '11.5px' ?>;
             line-height: 1.3;
         }
 
@@ -96,21 +101,23 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
             margin-bottom: 6px;
         }
         .store-title {
-            font-size: <?= $paper_size === 58 ? '14px' : '18px' ?>;
+            font-size: <?= $paper_size === 58 ? '13px' : '16px' ?>;
             text-transform: uppercase;
             margin: 0 0 2px 0;
             letter-spacing: -0.2px;
             line-height: 1.2;
+            word-break: break-word;
         }
         .store-title-ur {
-            font-size: <?= $paper_size === 58 ? '13px' : '15px' ?>;
+            font-size: <?= $paper_size === 58 ? '12px' : '14px' ?>;
             margin: 0 0 3px 0;
             line-height: 1.3;
         }
         .store-sub {
-            font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>;
+            font-size: <?= $paper_size === 58 ? '9px' : '10.5px' ?>;
             margin: 0;
             line-height: 1.25;
+            word-break: break-word;
         }
 
         .divider {
@@ -123,7 +130,7 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
         }
 
         .receipt-meta {
-            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
+            font-size: <?= $paper_size === 58 ? '10px' : '11.5px' ?>;
             margin-bottom: 5px;
         }
         .meta-row {
@@ -131,45 +138,63 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
             justify-content: space-between;
             margin-bottom: 2px;
         }
+        .meta-row span:last-child {
+            text-align: right;
+            padding-right: 1.5mm !important;
+        }
 
         /* Items Table */
         .items-table {
             width: 100%;
             border-collapse: collapse;
             margin: 3px 0;
+            table-layout: fixed;
         }
         .items-table th {
             border-bottom: 1px dashed #000000;
             border-top: 1px dashed #000000;
             padding: 3px 0;
-            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
-            text-align: left;
+            font-size: <?= $paper_size === 58 ? '10px' : '11.5px' ?>;
+        }
+        .items-table th:last-child {
+            padding-right: 1.5mm !important;
         }
         .items-table td {
             padding: 2px 0;
             vertical-align: top;
         }
         .item-name {
-            font-size: <?= $paper_size === 58 ? '11px' : '13px' ?>;
+            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
             word-break: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.25;
         }
         .item-details {
-            font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>;
+            font-size: <?= $paper_size === 58 ? '9px' : '10.5px' ?>;
+            word-break: break-word;
         }
         .item-total {
-            font-size: <?= $paper_size === 58 ? '11px' : '13px' ?>;
+            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
             text-align: right;
+            white-space: nowrap;
+            padding-right: 1.5mm !important;
         }
 
         /* Totals */
         .total-row {
             display: flex;
             justify-content: space-between;
-            font-size: <?= $paper_size === 58 ? '10.5px' : '12px' ?>;
+            align-items: center;
+            font-size: <?= $paper_size === 58 ? '10px' : '11.5px' ?>;
             padding: 1.5px 0;
         }
+        .total-row span:last-child {
+            text-align: right;
+            white-space: nowrap;
+            padding-right: 1.5mm !important;
+        }
         .grand-total {
-            font-size: <?= $paper_size === 58 ? '14px' : '17px' ?>;
+            font-size: <?= $paper_size === 58 ? '13px' : '15px' ?>;
             border-top: 1px solid #000000;
             border-bottom: 1px solid #000000;
             padding: 3px 0;
@@ -179,6 +204,7 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
         .bank-info {
             font-size: <?= $paper_size === 58 ? '9px' : '10.5px' ?>;
             margin-bottom: 2px;
+            word-break: break-all;
         }
 
         .footer-note {
@@ -186,14 +212,16 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
             font-size: <?= $paper_size === 58 ? '8.5px' : '10px' ?>;
             margin-top: 6px;
             line-height: 1.25;
+            word-break: break-word;
         }
 
         .barcode-wrapper {
             text-align: center;
             margin: 8px 0 3px 0;
+            overflow: hidden;
         }
         .barcode-text {
-            font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>;
+            font-size: <?= $paper_size === 58 ? '9px' : '10.5px' ?>;
             letter-spacing: 1.5px;
             margin-top: 2px;
         }
@@ -206,10 +234,11 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
 
         /* Print Media Settings */
         @media print {
-            body {
+            html, body {
                 background: #ffffff !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                width: 100% !important;
             }
             .action-toolbar {
                 display: none !important;
@@ -218,12 +247,14 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
                 width: <?= $printable_width ?> !important;
                 max-width: <?= $printable_width ?> !important;
                 box-shadow: none !important;
-                padding: 0 !important;
+                /* Safe inner gutter so driver hardware boundary never clips right-aligned numbers */
+                padding: 0 2mm 0 1.5mm !important;
                 margin: 0 auto !important;
+                overflow: hidden !important;
             }
             @page {
-                size: <?= $paper_size === 58 ? '58mm' : '80mm' ?> auto;
-                margin: 0;
+                size: <?= $roll_size ?> auto;
+                margin: 0mm;
             }
         }
     </style>
@@ -295,9 +326,9 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 50%;">ITEM</th>
-                <th style="width: 25%; text-align: center;">QTY</th>
-                <th style="width: 25%; text-align: right;">TOTAL</th>
+                <th style="width: 44%; text-align: left;">ITEM</th>
+                <th style="width: 26%; text-align: center;">QTY</th>
+                <th style="width: 30%; text-align: right;">TOTAL</th>
             </tr>
         </thead>
         <tbody>
@@ -315,10 +346,12 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
                     </td>
                 </tr>
                 <tr>
-                    <td class="item-details" style="padding-left: 4px;">
-                        <?= format_qty($row['quantity']) ?> <?= clean_input($row['unit_name']) ?> @ <?= number_format($row['unit_price'], 2) ?>
+                    <td class="item-details" style="padding-left: 2px;">
+                        @ <?= number_format($row['unit_price'], 2) ?>
                     </td>
-                    <td></td>
+                    <td style="text-align: center; font-size: <?= $paper_size === 58 ? '9.5px' : '11px' ?>; white-space: nowrap;">
+                        <?= format_qty($row['quantity']) ?> <?= clean_input($row['unit_name']) ?>
+                    </td>
                     <td class="item-total"><?= number_format($row['total'], 2) ?></td>
                 </tr>
             <?php endwhile; ?>
@@ -391,7 +424,7 @@ $banks = $conn->query("SELECT * FROM financial_accounts WHERE show_on_invoice = 
 
     <!-- Barcode -->
     <div class="barcode-wrapper">
-        <?= generate_barcode_svg($sale['invoice_no'], $paper_size === 58 ? 28 : 34, $paper_size === 58 ? 0.95 : 1.25) ?>
+        <?= generate_barcode_svg($sale['invoice_no'], $paper_size === 58 ? 26 : 30, $paper_size === 58 ? 0.9 : 1.1) ?>
         <div class="barcode-text"><?= clean_input($sale['invoice_no']) ?></div>
     </div>
 
