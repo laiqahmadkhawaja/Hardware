@@ -9,6 +9,33 @@ require_permission('pos');
 
 $customers = $conn->query("SELECT id, name, name_ur, phone, current_balance, credit_limit FROM customers WHERE status = 'active' ORDER BY name ASC");
 $accounts = $conn->query("SELECT id, name, name_ur, account_type FROM financial_accounts ORDER BY id ASC");
+$categories = $conn->query("SELECT c.id, c.name, c.name_ur, COUNT(p.id) as product_count 
+                           FROM categories c 
+                           JOIN products p ON c.id = p.category_id AND p.status = 'active' 
+                           GROUP BY c.id, c.name, c.name_ur 
+                           ORDER BY c.name ASC");
+
+$products_query = "SELECT p.id, p.code, p.barcode, p.name, p.name_ur, p.cost_price, 
+                   p.retail_price, p.wholesale_price, p.contractor_price,
+                   p.category_id,
+                   u.id as unit_id, u.name as unit_name, u.name_ur as unit_name_ur, u.allow_decimal,
+                   c.name as category_name, c.name_ur as category_name_ur,
+                   b.name as brand_name, b.name_ur as brand_name_ur,
+                   IFNULL(sb.quantity, 0) as stock_qty
+            FROM products p
+            JOIN units u ON p.base_unit_id = u.id
+            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN brands b ON p.brand_id = b.id
+            LEFT JOIN stock_balances sb ON p.id = sb.product_id AND sb.warehouse_id = 1
+            WHERE p.status = 'active'
+            ORDER BY p.name ASC";
+$products_list = $conn->query($products_query);
+$all_products = [];
+if ($products_list) {
+    while ($pr = $products_list->fetch_assoc()) {
+        $all_products[] = $pr;
+    }
+}
 
 $page_title = __('pos');
 include __DIR__ . '/includes/header.php';
@@ -16,8 +43,8 @@ include __DIR__ . '/includes/header.php';
 
 <div class="pos-container">
     <div class="row g-3 h-100">
-        <!-- Left Column: Search & Current Cart Items -->
-        <div class="col-12 col-lg-8 d-flex flex-column">
+        <!-- Left Column: Search Bar & Product Catalog Grid -->
+        <div class="col-12 col-xl-7 col-lg-7 d-flex flex-column">
             <!-- Search & Barcode input -->
             <div class="card card-custom mb-3 p-3 position-relative">
                 <div class="input-group">
@@ -29,31 +56,104 @@ include __DIR__ . '/includes/header.php';
                         <span class="d-none d-sm-inline fw-semibold">Camera</span>
                     </button>
                 </div>
-                <!-- Dropdown Search Results -->
+                <!-- Dropdown Search Results for barcode/live lookups -->
                 <div id="searchResults" class="search-results-floating d-none"></div>
             </div>
 
-            <!-- Cart Table Card -->
-            <div class="card card-custom flex-grow-1 d-flex flex-column mb-0">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span class="fw-bold"><i class="bi bi-cart3 me-1"></i> Current Invoice Items</span>
-                    <button class="btn btn-sm btn-outline-danger" id="btnClearCart"><i class="bi bi-trash me-1"></i> Clear Cart</button>
+            <!-- Product Catalog Grid Card -->
+            <div class="card card-custom flex-grow-1 p-3 d-flex flex-column mb-0">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold"><i class="bi bi-grid-fill me-1 text-primary"></i> Product Catalog (سامان کی فہرست)</span>
+                    <span class="badge bg-primary-subtle text-primary border" id="productCountBadge"><?= count($all_products) ?> Items</span>
                 </div>
-                <div class="table-responsive pos-cart-table-wrapper flex-grow-1 p-0">
+
+                <!-- Category Filter Pills -->
+                <div class="pos-category-pills">
+                    <button type="button" class="pos-category-pill active" data-category="all">All (<?= count($all_products) ?>)</button>
+                    <?php while ($cat = $categories->fetch_assoc()): ?>
+                        <button type="button" class="pos-category-pill" data-category="<?= $cat['id'] ?>">
+                            <?= clean_input($cat['name']) ?> (<?= $cat['product_count'] ?>)
+                        </button>
+                    <?php endwhile; ?>
+                </div>
+
+                <!-- Scrollable Product Cards Grid -->
+                <div class="pos-product-grid-wrapper flex-grow-1">
+                    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-3 row-cols-xxl-3 g-2" id="posProductGrid">
+                        <?php foreach ($all_products as $idx => $p): ?>
+                            <div class="col pos-product-col">
+                                <div class="pos-product-card <?= ($p['stock_qty'] <= 0) ? 'out-of-stock' : '' ?>" 
+                                     data-index="<?= $idx ?>"
+                                     data-id="<?= $p['id'] ?>"
+                                     data-category-id="<?= $p['category_id'] ?>"
+                                     data-search="<?= strtolower(htmlspecialchars($p['name'] . ' ' . $p['name_ur'] . ' ' . $p['code'] . ' ' . $p['barcode'] . ' ' . $p['category_name'] . ' ' . $p['brand_name'])) ?>"
+                                     onclick="addProductFromCard(<?= $idx ?>)">
+                                    <div>
+                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                            <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.68rem;">
+                                                <?= clean_input($p['code']) ?>
+                                            </span>
+                                            <?php if ($p['stock_qty'] > 0): ?>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.68rem;">
+                                                    <?= format_qty($p['stock_qty']) ?> <?= clean_input($p['unit_name']) ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.68rem;">
+                                                    Out of stock
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="card-item-title"><?= clean_input($p['name']) ?></div>
+                                        <?php if (!empty($p['name_ur'])): ?>
+                                            <div class="card-item-ur"><?= clean_input($p['name_ur']) ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                        <span class="card-item-price" 
+                                              data-retail="<?= $p['retail_price'] ?>" 
+                                              data-wholesale="<?= $p['wholesale_price'] ?: $p['retail_price'] ?>" 
+                                              data-contractor="<?= $p['contractor_price'] ?: $p['retail_price'] ?>">
+                                            PKR <?= number_format($p['retail_price'], 2) ?>
+                                        </span>
+                                        <span class="btn btn-sm btn-outline-primary py-0 px-2 rounded-pill fw-semibold" style="font-size: 0.75rem;">
+                                            <i class="bi bi-plus-lg"></i> Add
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div id="noProductsFound" class="text-center py-5 text-muted d-none">
+                        <i class="bi bi-search fs-1 d-block mb-2 text-secondary"></i>
+                        No matching products found
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Current Invoice Cart & Customer Payment -->
+        <div class="col-12 col-xl-5 col-lg-5 d-flex flex-column">
+            <!-- Cart Table Card -->
+            <div class="card card-custom mb-3 d-flex flex-column" style="min-height: 250px; max-height: 42vh;">
+                <div class="card-header d-flex justify-content-between align-items-center py-2 px-3">
+                    <span class="fw-bold"><i class="bi bi-cart3 me-1 text-primary"></i> Current Invoice (<span id="cartItemCount">0</span>)</span>
+                    <button class="btn btn-sm btn-outline-danger py-0 px-2" id="btnClearCart"><i class="bi bi-trash me-1"></i> Clear Cart</button>
+                </div>
+                <div class="table-responsive flex-grow-1 p-0" style="overflow-y: auto;">
                     <table class="table table-hover align-middle mb-0" id="cartTable">
                         <thead class="table-light sticky-top">
                             <tr>
-                                <th style="width: 35%;">Item Name</th>
-                                <th style="width: 20%;">Price (PKR)</th>
-                                <th style="width: 25%;">Qty / Units</th>
-                                <th style="width: 15%;">Total</th>
-                                <th style="width: 5%;"></th>
+                                <th>Item</th>
+                                <th style="width: 95px;" class="text-end">Price</th>
+                                <th style="width: 110px;" class="text-center">Qty</th>
+                                <th style="width: 90px;" class="text-end">Total</th>
+                                <th style="width: 35px;"></th>
                             </tr>
                         </thead>
                         <tbody id="cartBody">
                             <tr id="emptyCartRow">
-                                <td colspan="5" class="text-center py-5 text-muted">
-                                    <i class="bi bi-cart-x fs-1 d-block mb-2 text-secondary"></i>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <i class="bi bi-cart-x fs-2 d-block mb-1 text-secondary"></i>
                                     <?= __('empty_cart') ?>
                                 </td>
                             </tr>
@@ -61,11 +161,9 @@ include __DIR__ . '/includes/header.php';
                     </table>
                 </div>
             </div>
-        </div>
 
-        <!-- Right Column: Customer Khata, Payment & Checkout -->
-        <div class="col-12 col-lg-4">
-            <div class="card card-custom h-100 d-flex flex-column p-3" id="paymentCard">
+            <!-- Customer & Payment Card -->
+            <div class="card card-custom flex-grow-1 d-flex flex-column p-3" id="paymentCard" style="overflow-y: auto;">
                 <h6 class="fw-bold mb-3 border-bottom pb-2"><i class="bi bi-person-check-fill me-1 text-primary"></i> Customer & Payment</h6>
                 
                 <!-- Customer Selection -->
@@ -169,6 +267,50 @@ include __DIR__ . '/includes/header.php';
 
 <script>
 let cart = [];
+const catalogProducts = <?= json_encode($all_products) ?>;
+
+function addProductFromCard(idx) {
+    if (catalogProducts[idx]) {
+        addToCart(catalogProducts[idx]);
+    }
+}
+
+// Category filter click
+$('.pos-category-pill').click(function() {
+    $('.pos-category-pill').removeClass('active');
+    $(this).addClass('active');
+    applyGridFilters();
+});
+
+// Client-side real-time filter for product grid
+function applyGridFilters() {
+    const selectedCat = $('.pos-category-pill.active').data('category');
+    const term = $('#productSearch').val().trim().toLowerCase();
+    let visibleCount = 0;
+
+    $('.pos-product-card').each(function() {
+        const $col = $(this).closest('.pos-product-col');
+        const catId = $(this).data('category-id');
+        const searchData = String($(this).data('search') || '');
+
+        const matchCat = (selectedCat === 'all' || String(selectedCat) === String(catId));
+        const matchSearch = (!term || searchData.indexOf(term) !== -1);
+
+        if (matchCat && matchSearch) {
+            $col.removeClass('d-none');
+            visibleCount++;
+        } else {
+            $col.addClass('d-none');
+        }
+    });
+
+    if (visibleCount === 0) {
+        $('#noProductsFound').removeClass('d-none');
+    } else {
+        $('#noProductsFound').addClass('d-none');
+    }
+    $('#productCountBadge').text(visibleCount + ' Items');
+}
 
 // Customer Balance Update
 function updateCustomerInfo() {
@@ -184,6 +326,9 @@ let searchTimeout = null;
 let currentProducts = [];
 
 $('#productSearch').on('input', function() {
+    // Immediate instant filter on visible product cards in grid
+    applyGridFilters();
+
     clearTimeout(searchTimeout);
     const term = $(this).val().trim();
     if (term.length < 1) {
@@ -260,6 +405,25 @@ $('#clearSearch').click(function() {
     $('#productSearch').val('').focus();
     $('#searchResults').addClass('d-none').html('');
     currentProducts = [];
+    applyGridFilters();
+});
+
+// Price Tier Change updates both catalog card price tags and items in cart
+$('#priceTier').on('change', function() {
+    const tier = $(this).val();
+    $('.card-item-price').each(function() {
+        const price = parseFloat($(this).data(tier) || $(this).data('retail') || 0);
+        $(this).text('PKR ' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    });
+    cart.forEach(item => {
+        const p = catalogProducts.find(x => parseInt(x.id) === item.product_id);
+        if (p) {
+            if (tier === 'wholesale') item.price = parseFloat(p.wholesale_price || p.retail_price);
+            else if (tier === 'contractor') item.price = parseFloat(p.contractor_price || p.retail_price);
+            else item.price = parseFloat(p.retail_price);
+        }
+    });
+    renderCart();
 });
 
 // Add to Cart
@@ -286,15 +450,17 @@ function addToCart(product) {
 
     $('#productSearch').val('');
     $('#searchResults').addClass('d-none');
+    applyGridFilters();
     renderCart();
 }
 
 function renderCart() {
+    $('#cartItemCount').text(cart.length);
     if (cart.length === 0) {
         $('#cartBody').html(`
             <tr id="emptyCartRow">
-                <td colspan="5" class="text-center py-5 text-muted">
-                    <i class="bi bi-cart-x fs-1 d-block mb-2 text-secondary"></i>
+                <td colspan="5" class="text-center py-4 text-muted">
+                    <i class="bi bi-cart-x fs-2 d-block mb-1 text-secondary"></i>
                     <?= __('empty_cart') ?>
                 </td>
             </tr>
@@ -309,21 +475,21 @@ function renderCart() {
         rows += `
             <tr>
                 <td>
-                    <div class="fw-semibold">${item.name}</div>
+                    <div class="fw-semibold lh-sm">${item.name}</div>
                     <small class="text-muted font-monospace">${item.code}</small>
                 </td>
-                <td>
+                <td style="width: 95px;">
                     <input type="number" step="0.01" class="form-control form-control-sm text-end" value="${item.price}" onchange="updatePrice(${idx}, this.value)">
                 </td>
-                <td>
+                <td style="width: 110px;">
                     <div class="input-group input-group-sm">
-                        <input type="number" step="0.01" min="0.01" max="${item.max_stock}" class="form-control text-center" value="${item.qty}" onchange="updateQty(${idx}, this.value)">
-                        <span class="input-group-text">${item.unit_name}</span>
+                        <input type="number" step="0.01" min="0.01" max="${item.max_stock}" class="form-control text-center px-1" value="${item.qty}" onchange="updateQty(${idx}, this.value)">
+                        <span class="input-group-text px-1 small">${item.unit_name}</span>
                     </div>
                 </td>
-                <td class="fw-bold text-end">PKR ${lineTotal.toFixed(2)}</td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-link text-danger p-0" onclick="removeItem(${idx})"><i class="bi bi-x-circle fs-5"></i></button>
+                <td class="fw-bold text-end" style="width: 90px;">PKR ${lineTotal.toFixed(2)}</td>
+                <td class="text-center" style="width: 35px;">
+                    <button class="btn btn-sm btn-link text-danger p-0" onclick="removeItem(${idx})" title="Remove"><i class="bi bi-x-circle fs-5"></i></button>
                 </td>
             </tr>
         `;

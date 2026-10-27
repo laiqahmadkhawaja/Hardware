@@ -8,16 +8,47 @@ check_auth();
 
 $action = clean_input($_GET['action'] ?? ($_POST['action'] ?? ''));
 
-if ($action === 'search') {
+if ($action === 'search' || $action === 'get_all') {
     $term = clean_input($_GET['term'] ?? '');
-    if (empty($term)) {
-        json_response(true, '', []);
+    $category_id = (int)($_GET['category_id'] ?? 0);
+
+    $where = ["p.status = 'active'"];
+    $params = [];
+    $types = "";
+
+    if ($category_id > 0) {
+        $where[] = "p.category_id = ?";
+        $params[] = $category_id;
+        $types .= "i";
     }
 
-    $like = "%$term%";
-    // Search by product code, barcode, product name (English/Urdu), category name (English/Urdu), brand name (English/Urdu), or description
+    if (!empty($term)) {
+        $like = "%$term%";
+        $where[] = "(
+            p.code = ? 
+            OR p.barcode = ? 
+            OR p.code LIKE ? 
+            OR p.barcode LIKE ?
+            OR p.name LIKE ? 
+            OR p.name_ur LIKE ? 
+            OR p.description LIKE ?
+            OR c.name LIKE ?
+            OR c.name_ur LIKE ?
+            OR b.name LIKE ?
+            OR b.name_ur LIKE ?
+        )";
+        $params = array_merge($params, [$term, $term, $like, $like, $like, $like, $like, $like, $like, $like, $like]);
+        $types .= "sssssssssss";
+    }
+
+    $where_sql = implode(" AND ", $where);
+    $order_sql = !empty($term) 
+        ? "ORDER BY (p.code = ? OR p.barcode = ?) DESC, p.name ASC" 
+        : "ORDER BY p.name ASC";
+
     $sql = "SELECT p.id, p.code, p.barcode, p.name, p.name_ur, p.cost_price, 
                    p.retail_price, p.wholesale_price, p.contractor_price,
+                   p.category_id,
                    u.id as unit_id, u.name as unit_name, u.name_ur as unit_name_ur, u.allow_decimal,
                    c.name as category_name, c.name_ur as category_name_ur,
                    b.name as brand_name, b.name_ur as brand_name_ur,
@@ -27,33 +58,24 @@ if ($action === 'search') {
             LEFT JOIN categories c ON p.category_id = c.id
             LEFT JOIN brands b ON p.brand_id = b.id
             LEFT JOIN stock_balances sb ON p.id = sb.product_id AND sb.warehouse_id = 1
-            WHERE (
-                p.code = ? 
-                OR p.barcode = ? 
-                OR p.code LIKE ? 
-                OR p.barcode LIKE ?
-                OR p.name LIKE ? 
-                OR p.name_ur LIKE ? 
-                OR p.description LIKE ?
-                OR c.name LIKE ?
-                OR c.name_ur LIKE ?
-                OR b.name LIKE ?
-                OR b.name_ur LIKE ?
-            )
-            AND p.status = 'active'
-            ORDER BY (p.code = ? OR p.barcode = ?) DESC, p.name ASC
-            LIMIT 25";
+            WHERE $where_sql
+            $order_sql
+            LIMIT 100";
 
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         json_response(false, 'Database query error: ' . $conn->error);
     }
 
-    $stmt->bind_param(
-        "sssssssssssss", 
-        $term, $term, $like, $like, $like, $like, $like, $like, $like, $like, $like,
-        $term, $term
-    );
+    if (!empty($term)) {
+        $params[] = $term;
+        $params[] = $term;
+        $types .= "ss";
+    }
+
+    if (!empty($types)) {
+        $stmt->bind_param($types, ...$params);
+    }
     $stmt->execute();
     $res = $stmt->get_result();
     
